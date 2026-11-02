@@ -1,0 +1,30 @@
+name: Publish public installers
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find packages -maxdepth 1 -type f | wc -l)" -eq 6
+          version="${GITHUB_REF_NAME#v}"
+          for name in "SequencePaste-v${version}-Setup-win-x64.exe" "SequencePaste-v${version}-Portable-win-x64.exe" "SequencePaste-v${version}-win-x64.zip"; do
+            test -s "packages/$name"
+            test -s "packages/$name.sha256"
+          done
+          cd packages
+          sha256sum --check -- *.sha256
+      - name: Publish anonymous-download release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" packages/* --verify-tag --title "Sequence Paste $GITHUB_REF_NAME" --notes "Public installers and verified updates. No GitHub account, token or CLI required."
